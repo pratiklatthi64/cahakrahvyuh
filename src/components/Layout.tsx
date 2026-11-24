@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import Lenis from 'lenis'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import VideoBackdrop, { lowMotion } from './VideoBackdrop'
+import { lowMotion } from '../lib/motion'
+import VideoBackdrop from './VideoBackdrop'
 
 const DustLayer = lazy(() => import('./DustLayer'))
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
