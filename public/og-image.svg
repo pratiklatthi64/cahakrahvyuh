@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#0a1020" />
+      <stop offset="100%" stop-color="#07090d" />
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f3d995" />
+      <stop offset="60%" stop-color="#b08d4a" />
+      <stop offset="100%" stop-color="#7a5d2a" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <g transform="translate(600 315)" fill="none">
+    <circle r="270" stroke="#b08d4a" stroke-opacity="0.22" stroke-width="2" stroke-dasharray="90 30" />
+    <circle r="215" stroke="#2de2e6" stroke-opacity="0.25" stroke-width="1.5" stroke-dasharray="60 25" />
+    <circle r="160" stroke="#b08d4a" stroke-opacity="0.2" stroke-width="1.5" stroke-dasharray="45 20" />
+    <circle r="105" stroke="#2de2e6" stroke-opacity="0.18" stroke-width="1.5" />
+  </g>
+  <text x="600" y="195" text-anchor="middle" fill="#2de2e6" font-family="monospace" font-size="18" letter-spacing="6">DYPCOE AKURDI · HIRING PARTNER INTELLOBYTE</text>
+  <text x="600" y="295" text-anchor="middle" fill="url(#gold)" font-family="serif" font-weight="800" font-size="76" letter-spacing="4">CHAKRAVYUH</text>
+  <text x="600" y="365" text-anchor="middle" fill="url(#gold)" font-family="serif" font-weight="800" font-size="58" letter-spacing="4">VIBE CODING</text>
+  <text x="600" y="435" text-anchor="middle" fill="#2de2e6" font-family="serif" font-size="28" letter-spacing="8">VIBE. SHIP. CONQUER.</text>
+  <text x="600" y="510" text-anchor="middle" fill="#c9c3b4" font-family="monospace" font-size="20" letter-spacing="3">ROUND 1 UNTIL 8 DEC · ROUND 2 LIVE 12 DEC 2026</text>
+</svg>

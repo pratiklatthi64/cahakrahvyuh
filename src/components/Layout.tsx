@@ -4,8 +4,9 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { lowMotion } from '../lib/motion'
 import VideoBackdrop from './VideoBackdrop'
+import SoundToggle from './SoundToggle'
 
-const DustLayer = lazy(() => import('./DustLayer'))
+const ChakravyuhScene = lazy(() => import('./ChakravyuhScene'))
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { event, judgeDisclaimer } from '../data/event'
@@ -36,7 +37,8 @@ export default function Layout() {
   return (
     <div className="grain min-h-screen flex flex-col">
       <VideoBackdrop />
-      {!lowMotion && <Suspense fallback={null}><DustLayer /></Suspense>}
+      {!lowMotion && <Suspense fallback={null}><ChakravyuhScene /></Suspense>}
+      <SoundToggle />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] btn btn-primary">Skip to content</a>
       <nav className="fixed top-0 inset-x-0 z-50 bg-obsidian/85 backdrop-blur border-b border-bronze/30">
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">

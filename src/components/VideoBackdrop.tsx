@@ -2,102 +2,186 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { CHAKRAVYUH_VIDEOS, ROUTE_SHOT, getHomeScrollShot } from '../data/videos'
+import { CHAKRAVYUH_VIDEOS, ROUTE_SHOT, TOTAL_SHOTS } from '../data/videos'
 import { lowMotion } from '../lib/motion'
+import { getShotOpacity, scrollSync } from '../lib/scrollSync'
 
 gsap.registerPlugin(ScrollTrigger)
 
+const DIM_BY_SHOT = [0.36, 0.40, 0.42, 0.44, 0.36, 0.46]
 
 export default function VideoBackdrop() {
   const { pathname } = useLocation()
   const isHome = pathname === '/'
 
-  // Active shot drives which video is visible
-  const [activeShot, setActiveShot] = useState<number>(
-    isHome ? 0 : (ROUTE_SHOT[pathname] ?? 0)
-  )
   const [ready, setReady] = useState(lowMotion)
   const [gone, setGone] = useState(lowMotion)
 
-  // Individual video element refs — no array-of-refs (avoids lint exhaustive-deps)
   const v0 = useRef<HTMLVideoElement>(null)
   const v1 = useRef<HTMLVideoElement>(null)
   const v2 = useRef<HTMLVideoElement>(null)
   const v3 = useRef<HTMLVideoElement>(null)
   const v4 = useRef<HTMLVideoElement>(null)
   const v5 = useRef<HTMLVideoElement>(null)
-  const videoEls = [v0, v1, v2, v3, v4, v5]
 
-  const dim = useRef<HTMLDivElement>(null)
+  const dimRef = useRef<HTMLDivElement>(null)
+  const hudTextRef = useRef<HTMLSpanElement>(null)
+  const pipRefs = useRef<(HTMLSpanElement | null)[]>([])
+  const mobPipRefs = useRef<(HTMLSpanElement | null)[]>([])
 
   // ── PRELOADER ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (lowMotion) return
     let loaded = 0
-    const mark = () => { if (++loaded === 1) setReady(true) }
+    const mark = () => {
+      if (++loaded === 1) setReady(true)
+    }
     const els = [v0.current, v1.current, v2.current, v3.current, v4.current, v5.current]
-    els.forEach(v => { if (v) v.addEventListener('loadeddata', mark, { once: true }) })
-    const id = setTimeout(() => setReady(true), 4500)
+    els.forEach((v) => {
+      if (v) v.addEventListener('loadeddata', mark, { once: true })
+    })
+    const id = setTimeout(() => setReady(true), 4000)
     return () => {
-      els.forEach(v => { if (v) v.removeEventListener('loadeddata', mark) })
+      els.forEach((v) => {
+        if (v) v.removeEventListener('loadeddata', mark)
+      })
       clearTimeout(id)
     }
   }, [])
 
   useEffect(() => {
     if (!ready) return
-    const id = setTimeout(() => setGone(true), 900)
+    const id = setTimeout(() => setGone(true), 850)
     return () => clearTimeout(id)
   }, [ready])
 
-  // ── PLAY ACTIVE SHOT ───────────────────────────────────────────────────────
+  // ── ROUTE & SCROLL SYNC ────────────────────────────────────────────────────
+  useEffect(() => {
+    scrollSync.isHome = isHome
+    if (!isHome) {
+      const targetShot = ROUTE_SHOT[pathname] ?? 0
+      scrollSync.progress = targetShot / (TOTAL_SHOTS - 1)
+      scrollSync.smoothProgress = scrollSync.progress
+      scrollSync.shotFloat = targetShot
+      return
+    }
+
+    if (lowMotion) return
+
+    let lastScrollY = window.scrollY
+    const updateScroll = () => {
+      const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight)
+      const currentY = window.scrollY
+      const p = Math.min(1, Math.max(0, currentY / max))
+      const deltaY = currentY - lastScrollY
+      lastScrollY = currentY
+
+      scrollSync.progress = p
+      // Normalized velocity impulse for warp dust & video speed modulation
+      scrollSync.velocity = Math.max(-3, Math.min(3, deltaY * 0.04))
+    }
+
+    const st = ScrollTrigger.create({
+      start: 0,
+      end: 'max',
+      onUpdate: updateScroll,
+      onRefresh: updateScroll,
+    })
+    updateScroll()
+
+    return () => st.kill()
+  }, [isHome, pathname])
+
+  // ── 60FPS CONTINUOUS VIDEO CROSSFADE + VELOCITY SYNC ───────────────────────
   useEffect(() => {
     if (lowMotion) return
-    const v = videoEls[activeShot]?.current
-    if (v) v.play().catch(() => {/* muted autoplay fine */})
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeShot])
 
-  // ── ROUTE-BASED SHOT SELECTION (non-Home) ─────────────────────────────────
-  useEffect(() => {
-    if (lowMotion || isHome) return
-    const target = ROUTE_SHOT[pathname] ?? 0
-    setActiveShot(target)
-    if (dim.current) gsap.to(dim.current, { opacity: 0.68, duration: 0.7, ease: 'power2.out' })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname])
+    const els = [v0.current, v1.current, v2.current, v3.current, v4.current, v5.current]
+    let lastLabelIdx = -1
 
-  // ── HOME SCROLL → SHOT CROSSFADE ──────────────────────────────────────────
-  useEffect(() => {
-    if (lowMotion || !isHome) return
+    const tick = () => {
+      // Smoothly track shotFloat [0..5]
+      const targetShotFloat = scrollSync.isHome
+        ? scrollSync.smoothProgress * (TOTAL_SHOTS - 1)
+        : (ROUTE_SHOT[pathname] ?? 0)
 
-    const DIM_BY_SHOT = [0.38, 0.40, 0.42, 0.44, 0.38, 0.50]
+      scrollSync.shotFloat += (targetShotFloat - scrollSync.shotFloat) * 0.14
+      const sf = scrollSync.shotFloat
+      const speedBoost = 0.9 + Math.min(0.9, Math.abs(scrollSync.smoothVelocity) * 0.45)
 
-    const apply = () => {
-      const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight)
-      const progress = Math.min(1, Math.max(0, window.scrollY / max))
-      const shot = getHomeScrollShot(progress)
-      setActiveShot(shot)
-      if (dim.current) {
-        gsap.to(dim.current, {
-          opacity: DIM_BY_SHOT[shot] ?? 0.4,
-          duration: 0.5,
-          ease: 'power2.out',
-          overwrite: 'auto',
-        })
+      // Update each video's opacity, subtle depth scale, and play/pause state
+      for (let i = 0; i < TOTAL_SHOTS; i++) {
+        const v = els[i]
+        if (!v) continue
+        const op = getShotOpacity(i, sf)
+        v.style.opacity = op.toFixed(3)
+
+        // Subtle continuous zoom-in as you pass through each layer
+        const offset = sf - i // -1 (entering) -> 0 (center) -> +1 (leaving)
+        const scale = 1.03 + offset * 0.035
+        v.style.transform = `scale(${scale.toFixed(4)})`
+
+        if (op > 0.02) {
+          if (v.paused) {
+            v.play().catch(() => { /* muted autoplay */ })
+          }
+          if (Math.abs(v.playbackRate - speedBoost) > 0.05) {
+            v.playbackRate = speedBoost
+          }
+        } else if (!v.paused) {
+          v.pause()
+        }
+      }
+
+      // Smoothly interpolate dim overlay between shots
+      if (dimRef.current) {
+        if (!scrollSync.isHome) {
+          dimRef.current.style.opacity = '0.68'
+        } else {
+          const i0 = Math.floor(sf)
+          const i1 = Math.min(TOTAL_SHOTS - 1, i0 + 1)
+          const frac = sf - i0
+          const d = (DIM_BY_SHOT[i0] ?? 0.4) * (1 - frac) + (DIM_BY_SHOT[i1] ?? 0.4) * frac
+          dimRef.current.style.opacity = d.toFixed(3)
+        }
+      }
+
+      // Update HUD label & pips without React re-renders
+      const nearest = Math.round(sf)
+      if (nearest !== lastLabelIdx) {
+        lastLabelIdx = nearest
+        if (hudTextRef.current) {
+          hudTextRef.current.textContent = CHAKRAVYUH_VIDEOS[nearest]?.name ?? ''
+        }
+        for (let i = 0; i < TOTAL_SHOTS; i++) {
+          const active = i === nearest
+          const dPip = pipRefs.current[i]
+          if (dPip) {
+            dPip.style.width = active ? '22px' : '6px'
+            dPip.style.background = active ? '#2de2e6' : 'rgba(176,141,74,0.4)'
+            dPip.style.boxShadow = active ? '0 0 8px #2de2e6' : 'none'
+          }
+          const mPip = mobPipRefs.current[i]
+          if (mPip) {
+            mPip.style.width = active ? '14px' : '4px'
+            mPip.style.background = active ? '#2de2e6' : 'rgba(176,141,74,0.35)'
+          }
+        }
       }
     }
 
-    const st = ScrollTrigger.create({ start: 0, end: 'max', onUpdate: apply, onRefresh: apply })
-    apply()
-    return () => st.kill()
-  }, [isHome])
+    gsap.ticker.add(tick)
+    return () => {
+      gsap.ticker.remove(tick)
+    }
+  }, [pathname])
+
+  const videoRefs = [v0, v1, v2, v3, v4, v5]
 
   return (
     <>
-      {/* ─── BACKGROUND LAYER ──────────────────────────────────────────────── */}
       <div aria-hidden className="fixed inset-0 -z-20 bg-obsidian overflow-hidden">
-        {/* Poster fallback (hides once videos ready) */}
+        {/* Still poster fallback */}
         <img
           src="/bg-poster.jpg"
           alt=""
@@ -106,40 +190,30 @@ export default function VideoBackdrop() {
           }`}
         />
 
-        {/* 6 stacked video elements — only the active one is fully opaque */}
-        {!lowMotion && CHAKRAVYUH_VIDEOS.map((vid, idx) => {
-          const isActive = activeShot === idx
-          return (
+        {/* 6 stacked video elements — continuous smoothstep crossfade via GSAP ticker */}
+        {!lowMotion &&
+          CHAKRAVYUH_VIDEOS.map((vid, idx) => (
             <video
               key={vid.id}
-              ref={videoEls[idx]}
+              ref={videoRefs[idx]}
               src={vid.src}
               muted
               playsInline
               loop
-              autoPlay
-              preload={idx <= 1 ? 'auto' : 'metadata'}
+              preload={idx <= 2 ? 'auto' : 'metadata'}
               tabIndex={-1}
               aria-hidden
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
               style={{
-                opacity: isActive ? 1 : 0,
-                transform: isActive ? 'scale(1)' : 'scale(1.04)',
-                transition: 'opacity 1.4s cubic-bezier(0.4,0,0.2,1), transform 2.5s ease-out',
+                opacity: idx === 0 ? 1 : 0,
                 filter: 'contrast(1.07) brightness(0.9)',
                 willChange: 'opacity, transform',
-                pointerEvents: 'none',
               }}
             />
-          )
-        })}
+          ))}
 
         {/* Dynamic dim overlay */}
-        <div
-          ref={dim}
-          className="absolute inset-0 bg-obsidian"
-          style={{ opacity: 0.42, transition: 'opacity 0.5s' }}
-        />
+        <div ref={dimRef} className="absolute inset-0 bg-obsidian" style={{ opacity: 0.4 }} />
 
         {/* Cinematic vignette */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_70%_at_50%_50%,transparent_40%,#07090d_100%)]" />
@@ -148,49 +222,53 @@ export default function VideoBackdrop() {
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-obsidian/80 to-transparent pointer-events-none" />
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-obsidian/90 to-transparent pointer-events-none" />
 
-        {/* HUD status bar — IIT Techfest style */}
+        {/* HUD status bar — Desktop */}
         <div className="hidden md:flex fixed bottom-4 left-5 z-40 items-center gap-2 pointer-events-none select-none">
-          {/* Shot indicators */}
           <div className="flex gap-1 items-center">
             {CHAKRAVYUH_VIDEOS.map((_, i) => (
               <span
                 key={i}
-                className="block rounded-full transition-all duration-700"
+                ref={(el) => {
+                  pipRefs.current[i] = el
+                }}
+                className="block rounded-full transition-all duration-500"
                 style={{
-                  width: activeShot === i ? 20 : 6,
+                  width: i === 0 ? 22 : 6,
                   height: 4,
-                  background: activeShot === i ? '#2de2e6' : 'rgba(176,141,74,0.4)',
-                  boxShadow: activeShot === i ? '0 0 8px #2de2e6' : 'none',
+                  background: i === 0 ? '#2de2e6' : 'rgba(176,141,74,0.4)',
                 }}
               />
             ))}
           </div>
           <span
+            ref={hudTextRef}
             className="font-mono text-[0.6rem] tracking-[0.22em] uppercase"
-            style={{ color: 'rgba(224,184,102,0.65)' }}
+            style={{ color: 'rgba(224,184,102,0.7)' }}
           >
-            {CHAKRAVYUH_VIDEOS[activeShot]?.name}
+            {CHAKRAVYUH_VIDEOS[0]?.name}
           </span>
         </div>
 
-        {/* Mobile minimal indicator */}
+        {/* HUD status bar — Mobile */}
         <div className="flex md:hidden fixed bottom-4 left-4 z-40 gap-1 pointer-events-none">
           {CHAKRAVYUH_VIDEOS.map((_, i) => (
             <span
               key={i}
-              className="block rounded-full"
+              ref={(el) => {
+                mobPipRefs.current[i] = el
+              }}
+              className="block rounded-full transition-all duration-500"
               style={{
-                width: activeShot === i ? 14 : 4,
+                width: i === 0 ? 14 : 4,
                 height: 3,
-                background: activeShot === i ? '#2de2e6' : 'rgba(176,141,74,0.35)',
-                transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1)',
+                background: i === 0 ? '#2de2e6' : 'rgba(176,141,74,0.35)',
               }}
             />
           ))}
         </div>
       </div>
 
-      {/* ─── PRELOADER OVERLAY ─────────────────────────────────────────────── */}
+      {/* Preloader */}
       {!gone && (
         <div
           role="status"
@@ -203,7 +281,6 @@ export default function VideoBackdrop() {
           }}
         >
           <div className="flex flex-col items-center gap-4">
-            {/* Six-ring preloader matching the Chakravyuh 6-layer concept */}
             <svg viewBox="-60 -60 120 120" className="w-36 h-36" aria-hidden>
               {[46, 36, 27, 19, 12, 6].map((r, i) => (
                 <circle
@@ -223,9 +300,6 @@ export default function VideoBackdrop() {
             <div className="text-center">
               <p className="font-mono text-[0.65rem] tracking-[0.3em] text-cyan uppercase animate-pulse">
                 Entering the Chakravyuh
-              </p>
-              <p className="font-mono text-[0.55rem] tracking-[0.2em] mt-1" style={{ color: 'rgba(224,184,102,0.5)' }}>
-                SHOT {activeShot + 1} / {CHAKRAVYUH_VIDEOS.length}
               </p>
             </div>
           </div>
