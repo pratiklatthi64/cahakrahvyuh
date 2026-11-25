@@ -6,6 +6,7 @@ export const SHORTLIST_PUBLISHED = false
 
 export const links = {
   googleForm: '',
+  registrationEndpoint: '',
   whatsapp: '',
   instagram: '',
   linkedin: '',
