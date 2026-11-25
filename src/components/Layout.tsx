@@ -67,7 +67,13 @@ export default function Layout() {
       </nav>
       <main id="main" className="flex-1">
         <AnimatePresence mode="wait">
-          <motion.div key={loc.pathname} initial={{ opacity: 0, filter: 'blur(8px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} exit={{ opacity: 0 }} transition={{ duration: 0.5, ease: [0.65, 0, 0.35, 1] }}>
+          <motion.div
+            key={loc.pathname}
+            initial={{ opacity: 0, clipPath: 'circle(12% at 50% 45%)' }}
+            animate={{ opacity: 1, clipPath: 'circle(150% at 50% 45%)' }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.55, ease: [0.65, 0, 0.35, 1] }}
+          >
             <Outlet />
           </motion.div>
         </AnimatePresence>
